@@ -1,0 +1,12 @@
+[package]
+name = "rust_slay"
+version = "0.1.0"
+authors = ["FireFlyForLife <maiko.s.99@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+ggez = "0.5.1"
+specs = "0.15.1"
+gfx = "0.18"
+cgmath = { version = "0.17", features = ["mint"]}
