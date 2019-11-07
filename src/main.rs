@@ -17,7 +17,7 @@ use ggez::graphics::{self, DrawMode, Vertex, Image, Drawable, DrawParam, FilterM
 use ggez::timer;
 use ggez::{Context, GameResult};
 use ggez::conf::WindowMode;
-use ggez::event::{KeyCode, KeyMods};
+use ggez::event::{KeyCode, KeyMods,MouseButton};
 use ggez::input::keyboard::is_key_pressed;
 
 use simdnoise::NoiseBuilder;
@@ -34,6 +34,7 @@ gfx_defines! {
         texSizeY: f32 = "u_TexDimensionsY",
         zoom: f32 = "u_Zoom",
         camera_pos: [f32; 2] = "u_CamPos",
+        scr_size: [f32; 2] = "u_ScreenSize",
     }
 }
 
@@ -81,7 +82,9 @@ fn make_quad(ctx: &mut Context, extends: cgmath::Point2<f32>, texture: Option<Im
 }
 
 pub type Point2I = cgmath::Vector2<i32>;
+pub type Point2F = cgmath::Vector2<f32>;
 pub type Vec2f = cgmath::Vector2<f32>;
+pub type Vec3f = cgmath::Vector3<f32>;
 
 // fn print_perlin(grid: &Vec<f32>, width: usize, height: usize) {
 //     for y in 0..height {
@@ -127,6 +130,7 @@ impl MainState {
         let w = 100;
         let h = 100;
         let seed: i32 = args.get(3).unwrap_or(&"123".to_owned()).parse().unwrap();
+        println!("Generating with seed: {}",seed );
 
         let mut grid = hex::HexagonGrid::new(w, h, Some(seed));
         terrain_generator::generate_island(&mut grid, args.get(1).unwrap_or(&"not a number".to_owned()).parse().ok(), args.get(2).unwrap_or(&"not a number".to_owned()).parse().ok());
@@ -136,7 +140,7 @@ impl MainState {
         grid_texture.set_filter(FilterMode::Nearest);
         grid_texture.set_wrap(WrapMode::Border, WrapMode::Border);
 
-        let dim = Dim { rate: 0.5, texSizeX: grid.width as f32, texSizeY: grid.height as f32, zoom: 100.0, camera_pos: [0.0, 0.0] };
+        let dim = Dim { rate: 0.5, texSizeX: grid.width as f32, texSizeY: grid.height as f32, zoom: 100.0, camera_pos: [0.0, 0.0], scr_size: [800.0, 800.0] };
         let shader = graphics::Shader::new(
             ctx,
             "/basic_150.glslv",
@@ -146,7 +150,7 @@ impl MainState {
             None,
         )?;
 
-        let quad = make_quad(ctx, cgmath::Point2::<f32>::new(800.0*1.0, 600.0*1.0), Some(grid_texture.clone()))?;
+        let quad = make_quad(ctx, cgmath::Point2::<f32>::new(800.0*1.0, 800.0*1.0), Some(grid_texture.clone()))?;
 
         let camera_pos = Vec2f::new(0.0, 0.0);
 
@@ -159,15 +163,15 @@ impl event::EventHandler for MainState {
         self.dim.rate = 0.5 + (((timer::ticks(ctx) as f32) / 100.0).cos() / 2.0);
         self.dim.camera_pos = [self.camera_pos.x, self.camera_pos.y];
 
-        let movement_speed: f32 = 20.0 * ggez::timer::delta(ctx).as_secs_f32();
+        let movement_speed: f32 = 150.0 * ggez::timer::delta(ctx).as_secs_f32();
         if is_key_pressed(ctx, KeyCode::Left) {
             self.camera_pos.x -= movement_speed;
-        } else if is_key_pressed(ctx, KeyCode::Right) {
+        } if is_key_pressed(ctx, KeyCode::Right) {
             self.camera_pos.x += movement_speed;
-        } else if is_key_pressed(ctx, KeyCode::Up) {
-            self.camera_pos.y -= movement_speed;
-        } else if is_key_pressed(ctx, KeyCode::Down) {
+        } if is_key_pressed(ctx, KeyCode::Up) {
             self.camera_pos.y += movement_speed;
+        } if is_key_pressed(ctx, KeyCode::Down) {
+            self.camera_pos.y -= movement_speed;
         }
 
         Ok(())
@@ -180,11 +184,11 @@ impl event::EventHandler for MainState {
             ctx,
             DrawMode::fill(),
             cgmath::Point2::new(100.0, 300.0),
-            100.0,
+            10.0,
             2.0,
             graphics::WHITE,
         )?;
-        graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
+        //graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
 
         {
             let _lock = graphics::use_shader(ctx, &self.shader);
@@ -197,7 +201,15 @@ impl event::EventHandler for MainState {
             //     2.0,
             //     graphics::WHITE,
             // )?;
-            let (scr_w, _scr_h) = graphics::size(ctx);
+            let color_array = self.grid.get_rgba8();
+            let mut grid_texture = Image::from_rgba8(ctx, self.grid.width as u16, self.grid.height as u16, color_array.as_slice())?;
+            grid_texture.set_filter(FilterMode::Nearest);
+            grid_texture.set_wrap(WrapMode::Border, WrapMode::Border);
+            self.grid_texture = grid_texture;
+
+            let (scr_w, scr_h) = graphics::size(ctx);
+            self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(scr_w * 1.0, scr_h * 2.0), Some(self.grid_texture.clone())).unwrap();
+
             let draw_params = DrawParam::new()
                 .dest(cgmath::Point2::new(scr_w / 2.0, 0.0));
             
@@ -214,7 +226,11 @@ impl event::EventHandler for MainState {
             2.0,
             graphics::WHITE,
         )?;
-        graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
+        //graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
+
+        let dt = ggez::timer::delta(ctx).as_secs_f32();
+        let fps_txt = graphics::Text::new(format!("FPS: {}", 1.0 / dt));
+        graphics::draw(ctx, &fps_txt, (cgmath::Point2::<f32>::new(10.0, 10.0), graphics::BLACK))?;
 
         graphics::present(ctx)?;
         Ok(())
@@ -224,6 +240,8 @@ impl event::EventHandler for MainState {
     /// via [`graphics::set_mode()`](../graphics/fn.set_mode.html).
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
         let _ = graphics::set_screen_coordinates(ctx, graphics::Rect::new(0.0, 0.0, width, height)).unwrap();
+        self.dim.scr_size[0] = width;
+        self.dim.scr_size[1] = height;
 
         self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(width * 1.0, height * 2.0), Some(self.grid_texture.clone())).unwrap();
 
@@ -236,7 +254,51 @@ impl event::EventHandler for MainState {
         self.dim.zoom -= y;
         self.dim.zoom = num::clamp(self.dim.zoom, 10.0, 150.0);
     }
+    /// A mouse button was pressed
+    fn mouse_button_down_event(
+        &mut self,
+        ctx: &mut Context,
+        button: MouseButton,
+        x: f32,
+        y: f32,
+    ) {
+        if button == MouseButton::Left{
+            let (scr_w, scr_h) = graphics::size(ctx);
+            println!("{:?}", (x,y));
+            
+            // let mut uv = Vec2f::new(x / scr_w, y / scr_h);
+            // //uv.y = 1.0 - uv.y;
+            // uv *= self.dim.zoom;
+            // uv += self.camera_pos;
 
+            // let mut id = hex::hex_coord(uv);
+            
+            // id.x = id.x.max(0.0);
+            // id.y = id.y.max(0.0);
+
+            let mut p = Vec2f::new(x as f32, y as f32);
+            p.y = scr_h - p.y;
+            //p += self.camera_pos;
+            // p.x *= scr_w / scr_h;
+
+            let id = hex::pixel_to_pointy_hex(p);
+            println!("pasted: {:?}", id);
+
+            if id.x < 0.0 {
+                println!("X is negative!");
+                return;
+            }
+            if id.y < 0.0 {
+                println!("Y is negative!");
+                return;
+            }
+
+            let index: usize = id.y.round() as usize * self.grid.width + id.x.round() as usize;
+            if let Some(tile) = self.grid.hexagons.get_mut(index) {
+                *tile = hex::HexagonTile::Clicked;
+            }
+        }
+    }
     /// A keyboard button was pressed.
     ///
     /// The default implementation of this will call `ggez::event::quit()`
