@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 //! A very simple shader example.
+use std::env;
 
 use cgmath;
 use cgmath::{InnerSpace};
@@ -12,9 +13,8 @@ use ggez::graphics::{self, DrawMode, Vertex};
 use ggez::timer;
 use ggez::{Context, GameResult};
 
-use noise::{NoiseFn, Perlin, Seedable, utils::*};
+use noise::{NoiseFn, Perlin,Fbm, Seedable, utils::*};
 
-use std::env;
 use std::path;
 use std::vec::Vec;
 
@@ -47,6 +47,7 @@ fn make_quad(ctx: &mut Context, extends: cgmath::Point2::<f32>) -> GameResult<gr
 }
 
 type Point2I = cgmath::Vector2::<i32>;
+
 
 #[derive(Debug, Copy, Clone)]
 enum HexagonTile{
@@ -125,12 +126,72 @@ fn is_island(perlin: &Perlin, mut p: cgmath::Vector2::<f32>, w: usize, h: usize)
     // c - (1.0 - 0.1) * dist * dist < 0.0
 }
 
+// world generation
+
+fn generate_grid(mut grid : Vec<f64>,width : &usize, height : &usize,seed : &u32) -> Vec<f64>{
+        let perlin = Perlin::new().set_seed(*seed);
+        for  y in 0..*height{
+            for x in 0..*width {      
+            let nx = (x as f64/(*width as f64) - 0.5).abs();
+            let ny = (y as f64/(*height as f64) - 0.5).abs();
+            let c = perlin.get([nx, ny]).abs();
+            grid.push(c);
+        }
+    }
+    grid
+}
+
+fn generate_island(grid : &Vec<f64>,width : &usize, height : &usize) -> Vec<f64>{
+    // e = (1 + e - d) / 2 where 0 <= d <= 1
+    let args: Vec<String> = env::args().collect();
+    let modifer : f64 = args[1].parse().unwrap();
+    let compare : f64 = args[2].parse().unwrap();
+    let mut islands = Vec::with_capacity(width*height);
+    let island_center = cgmath::Vector2::<f64>::new(0.5, 0.5);
+    for  y in 0..*height{
+        for x in 0..*width {
+            let index = y * width +x;
+            let dx = (grid[index] as f64 - island_center.x).abs() / *width as f64;
+            let dy = (grid[index] as f64 - island_center.y).abs() / *height as f64;
+            let d = modifer * (dx + dy);
+            let e = (1.0 + grid[index] - d) * 0.5;
+            islands.push({
+                if  e < compare {
+                    1.0
+                }else{
+                    0.0
+                }
+            }
+            );
+        }
+        }
+        islands
+}
+
+fn print(grid : &Vec<f64>,width :&usize,height : &usize) {
+        for y in 0..*height {
+            for x in 0..*width {
+                print!("{:?} ", grid[y*width+x]);
+            }
+            println!("");
+        }
+}
+
+fn print_as(grid : &Vec<f64>,width :&usize,height : &usize)
+{
+         for y in 0..*height {
+            for x in 0..*width {
+                print!("{:?} ", (grid[y*width+x] as u8));
+            }
+            println!("");
+        }   
+}
+
+
 
 struct MainState {
     dim: Dim,
-    shader: graphics::Shader<Dim>,
-
-    grid: HexagonGrid,
+    shader: graphics::Shader<Dim>
 }
 
 impl MainState {
@@ -144,13 +205,8 @@ impl MainState {
             "Dim",
             None,
         )?;
-
-        let grid = HexagonGrid::new();
-        grid.print();
-
-        
-
-        Ok(MainState { dim, shader, grid })
+    
+        Ok(MainState { dim, shader})
     }
 }
 
@@ -205,7 +261,17 @@ impl event::EventHandler for MainState {
     }
 }
 
-pub fn main() -> GameResult {
+pub fn main() /*-> GameResult*/ {
+        panic!("USE: cargo run 0.4 0.72 400");
+        let args : Vec<String>  = env::args().collect();
+        let w = 50;
+        let h = 50;
+        let seed : u32 = args[3].parse().unwrap();
+        let mut grid = Vec::with_capacity(w*h);
+        grid = generate_grid(grid,&w,&h,&seed);
+        let islands = generate_island(&grid, &w, &h);
+        print_as(&islands,&w,&h);
+    /*
     let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         let mut path = path::PathBuf::from(manifest_dir);
         path.push("resources");
@@ -219,4 +285,5 @@ pub fn main() -> GameResult {
 
     let state = &mut MainState::new(ctx)?;
     event::run(ctx, event_loop, state)
+    */
 }
