@@ -98,11 +98,12 @@ void main() {
     vec4 col = vec4(0, 0, 0, 1);
 	vec2 uv = v_Uv;
     // uv.x = min(1.0, uv.x);
+    uv.y = 1.0 - uv.y;
     vec2 scr_pos = uv * u_ScreenSize;
     scr_pos += u_CamPos;
     vec2 hex_coord = pixel_to_pointy_hex(scr_pos);
     vec2 terrain_uv = hex_coord / vec2(u_TexDimensionsX, u_TexDimensionsY);
-    terrain_uv.y = 1.0 - terrain_uv.y;
+    // terrain_uv.y = 1.0 - terrain_uv.y;
     vec4 terrain = texture(t_Texture, terrain_uv);
     col.xyz = terrain.xyz;
 
