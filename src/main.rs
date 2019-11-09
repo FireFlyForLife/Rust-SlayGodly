@@ -39,6 +39,8 @@ gfx_defines! {
     }
 }
 
+const YELLOW: graphics::Color = graphics::Color::new(1.0, 1.0, 0.0, 1.0);
+
 const QUAD_VERTICES: [Vertex; 4] = [
     Vertex {
         pos: [-0.5, 0.5],
@@ -173,9 +175,9 @@ impl event::EventHandler for MainState {
         } if is_key_pressed(ctx, KeyCode::Right) {
             self.camera_pos.x += movement_speed;
         } if is_key_pressed(ctx, KeyCode::Up) {
-            self.camera_pos.y += movement_speed;
-        } if is_key_pressed(ctx, KeyCode::Down) {
             self.camera_pos.y -= movement_speed;
+        } if is_key_pressed(ctx, KeyCode::Down) {
+            self.camera_pos.y += movement_speed;
         }
 
         Ok(())
@@ -193,6 +195,9 @@ impl event::EventHandler for MainState {
         //     graphics::WHITE,
         // )?;
         //graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
+        
+        let (scr_w, scr_h) = graphics::size(ctx);
+
 
         if !self.cpu_rendering_enabled {
             let _lock = graphics::use_shader(ctx, &self.shader);
@@ -211,7 +216,6 @@ impl event::EventHandler for MainState {
             grid_texture.set_wrap(WrapMode::Border, WrapMode::Border);
             self.grid_texture = grid_texture;
 
-            let (scr_w, scr_h) = graphics::size(ctx);
             self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(scr_w * 1.0, scr_h * 1.0), Some(self.grid_texture.clone())).unwrap();
 
             let draw_params = DrawParam::new()
@@ -219,8 +223,6 @@ impl event::EventHandler for MainState {
             
             graphics::draw(ctx, &self.quad, draw_params)?;
         } else {
-            let (scr_w, scr_h) = graphics::size(ctx);
-
             let cpu_buffer = rendering::cpu_render_map(&self.grid, self.camera_pos, [scr_w as usize, scr_h as usize]);
             let cpu_image = graphics::Image::from_rgba8(ctx, scr_w as u16, scr_h as u16, cpu_buffer.as_slice())?;
             let draw_params = DrawParam::new()
@@ -228,6 +230,12 @@ impl event::EventHandler for MainState {
 
             graphics::draw(ctx, &cpu_image, draw_params)?;
         }
+
+        let rendering_string = if self.cpu_rendering_enabled { "CPU rendering active!" } else { "GPU rendering active!" };
+        let rendering_type_txt = graphics::Text::new(rendering_string);
+        graphics::draw(ctx, &rendering_type_txt, (cgmath::Point2::<f32>::new(scr_w - 250.0, 10.0), graphics::Color::new(1.0, 1.0, 0.0, 1.0)))?;
+        
+
 
         //self.grid_texture.draw(ctx, DrawParam::new().scale(Vec2f::new(0.25, 0.25)))?;
 
@@ -243,7 +251,7 @@ impl event::EventHandler for MainState {
 
         let dt = ggez::timer::delta(ctx).as_secs_f32();
         let fps_txt = graphics::Text::new(format!("FPS: {}", 1.0 / dt));
-        graphics::draw(ctx, &fps_txt, (cgmath::Point2::<f32>::new(10.0, 10.0), graphics::BLACK))?;
+        graphics::draw(ctx, &fps_txt, (cgmath::Point2::<f32>::new(10.0, 10.0), YELLOW))?;
 
         graphics::present(ctx)?;
         Ok(())
