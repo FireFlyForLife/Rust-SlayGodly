@@ -73,7 +73,7 @@ fn make_quad(ctx: &mut Context, extends: cgmath::Point2<f32>, texture: Option<Im
         my_vertices[i].pos[0] *= extends.x;
         my_vertices[i].pos[1] *= extends.y;
         // if extends.x > extends.y{
-        my_vertices[i].uv[0] *= 1.0; //aspect;
+        my_vertices[i].uv[0] *= 1.0;
         my_vertices[i].uv[1] *= 1.0;
         // } else {
         //     my_vertices[i].uv[0] *= 1.0;

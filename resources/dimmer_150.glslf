@@ -83,7 +83,7 @@ vec2 hex_round(vec2 hex) {
     return cube_to_axial(cube_round(axial_to_cube(hex)));
 }
 
-const float size = 4.0;
+const float size = 10.0;
 
 vec2 pixel_to_pointy_hex(vec2 point) {
     float q = (sqrt(3)/3 * point.x  -  1./3 * point.y) / size;
@@ -103,6 +103,7 @@ void main() {
     scr_pos += u_CamPos;
     vec2 hex_coord = pixel_to_pointy_hex(scr_pos);
     vec2 terrain_uv = hex_coord / vec2(u_TexDimensionsX, u_TexDimensionsY);
+    terrain_uv += 0.0001;
     // terrain_uv.y = 1.0 - terrain_uv.y;
     vec4 terrain = texture(t_Texture, terrain_uv);
     col.xyz = terrain.xyz;

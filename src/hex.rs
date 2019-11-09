@@ -40,7 +40,9 @@ impl HexagonGrid {
         }
     }
 
-    pub fn get(&self, x: f32, y: f32) -> Option<HexagonTile> {
+    pub fn get(&self, mut x: f32, mut y: f32) -> Option<HexagonTile> {
+        x = x.round();
+        y = y.round();
         if x < 0.0 || x as usize >= self.width || y < 0.0 || y as usize >= self.height {
             return None;
         }
@@ -181,10 +183,10 @@ pub fn hex_round(hex: Vec2f) -> Vec2f {
     return cube_to_axial(cube_round(axial_to_cube(hex)));
 }
 
-const size: f32 = 4.0;
+const SIZE: f32 = 10.0;
 
 pub fn pixel_to_pointy_hex(point: Vec2f ) -> Vec2f {
-    let q = (sqrt(3.0)/3.0 * point.x  -  1.0/3.0 * point.y) / size;
-    let r = (                        2.0/3.0 * point.y) / size;
+    let q = (sqrt(3.0)/3.0 * point.x  -  1.0/3.0 * point.y) / SIZE;
+    let r = (                        2.0/3.0 * point.y) / SIZE;
     hex_round(Vec2f::new(q, r))
 }
