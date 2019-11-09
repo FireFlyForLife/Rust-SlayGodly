@@ -40,6 +40,14 @@ impl HexagonGrid {
         }
     }
 
+    pub fn get(&self, x: f32, y: f32) -> Option<HexagonTile> {
+        if x < 0.0 || x as usize >= self.width || y < 0.0 || y as usize >= self.height {
+            return None;
+        }
+
+        self.hexagons.get(y as usize * self.width + x as usize).cloned()
+    }
+
     pub fn get_rgba8(&self) -> Vec<u8> {
         let mut colors = Vec::new();
         colors.resize_with(self.height*self.width*4, Default::default);

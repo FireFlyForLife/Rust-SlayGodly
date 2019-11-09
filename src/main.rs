@@ -25,6 +25,7 @@ use simdnoise::NoiseBuilder;
 mod hex;
 mod num_utils;
 mod terrain_generator;
+mod rendering;
 
 // Define the input struct for our shader.
 gfx_defines! {
@@ -70,8 +71,8 @@ fn make_quad(ctx: &mut Context, extends: cgmath::Point2<f32>, texture: Option<Im
         my_vertices[i].pos[0] *= extends.x;
         my_vertices[i].pos[1] *= extends.y;
         // if extends.x > extends.y{
-            my_vertices[i].uv[0] *= aspect;
-            my_vertices[i].uv[1] *= 1.0;
+        my_vertices[i].uv[0] *= 1.0; //aspect;
+        my_vertices[i].uv[1] *= 1.0;
         // } else {
         //     my_vertices[i].uv[0] *= 1.0;
         //     my_vertices[i].uv[1] *= extends.y / extends.x;
@@ -120,6 +121,7 @@ struct MainState {
     grid: hex::HexagonGrid,
     quad: Mesh,
     camera_pos: Vec2f,
+    cpu_rendering_enabled: bool,
 }
 
 impl MainState {
@@ -154,7 +156,9 @@ impl MainState {
 
         let camera_pos = Vec2f::new(0.0, 0.0);
 
-        Ok(MainState { dim, shader, grid_texture, grid, quad, camera_pos })
+        let cpu_rendering_enabled = false;
+
+        Ok(MainState { dim, shader, grid_texture, grid, quad, camera_pos, cpu_rendering_enabled })
     }
 }
 
@@ -180,17 +184,17 @@ impl event::EventHandler for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
 
-        let circle = graphics::Mesh::new_circle(
-            ctx,
-            DrawMode::fill(),
-            cgmath::Point2::new(100.0, 300.0),
-            10.0,
-            2.0,
-            graphics::WHITE,
-        )?;
+        // let circle = graphics::Mesh::new_circle(
+        //     ctx,
+        //     DrawMode::fill(),
+        //     cgmath::Point2::new(100.0, 300.0),
+        //     10.0,
+        //     2.0,
+        //     graphics::WHITE,
+        // )?;
         //graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
 
-        {
+        if !self.cpu_rendering_enabled {
             let _lock = graphics::use_shader(ctx, &self.shader);
             self.shader.send(ctx, self.dim)?;
             // let circle = graphics::Mesh::new_circle(
@@ -208,24 +212,33 @@ impl event::EventHandler for MainState {
             self.grid_texture = grid_texture;
 
             let (scr_w, scr_h) = graphics::size(ctx);
-            self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(scr_w * 1.0, scr_h * 2.0), Some(self.grid_texture.clone())).unwrap();
+            self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(scr_w * 1.0, scr_h * 1.0), Some(self.grid_texture.clone())).unwrap();
 
             let draw_params = DrawParam::new()
-                .dest(cgmath::Point2::new(scr_w / 2.0, 0.0));
+                .dest(cgmath::Point2::new(scr_w / 2.0, scr_h / 2.0));
             
             graphics::draw(ctx, &self.quad, draw_params)?;
+        } else {
+            let (scr_w, scr_h) = graphics::size(ctx);
+
+            let cpu_buffer = rendering::cpu_render_map(&self.grid, self.camera_pos, [scr_w as usize, scr_h as usize]);
+            let cpu_image = graphics::Image::from_rgba8(ctx, scr_w as u16, scr_h as u16, cpu_buffer.as_slice())?;
+            let draw_params = DrawParam::new()
+                .dest(cgmath::Point2::new(0.0, 0.0));
+
+            graphics::draw(ctx, &cpu_image, draw_params)?;
         }
 
         //self.grid_texture.draw(ctx, DrawParam::new().scale(Vec2f::new(0.25, 0.25)))?;
 
-        let circle = graphics::Mesh::new_circle(
-            ctx,
-            DrawMode::fill(),
-            cgmath::Point2::new(700.0, 300.0),
-            100.0,
-            2.0,
-            graphics::WHITE,
-        )?;
+        // let circle = graphics::Mesh::new_circle(
+        //     ctx,
+        //     DrawMode::fill(),
+        //     cgmath::Point2::new(700.0, 300.0),
+        //     100.0,
+        //     2.0,
+        //     graphics::WHITE,
+        // )?;
         //graphics::draw(ctx, &circle, (cgmath::Point2::new(0.0, 0.0),))?;
 
         let dt = ggez::timer::delta(ctx).as_secs_f32();
@@ -243,7 +256,7 @@ impl event::EventHandler for MainState {
         self.dim.scr_size[0] = width;
         self.dim.scr_size[1] = height;
 
-        self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(width * 1.0, height * 2.0), Some(self.grid_texture.clone())).unwrap();
+        self.quad = make_quad(ctx, cgmath::Point2::<f32>::new(width * 1.0, height * 1.0), Some(self.grid_texture.clone())).unwrap();
 
         println!("Resizing!!! {}, {}", width, height);
     }
@@ -277,8 +290,8 @@ impl event::EventHandler for MainState {
             // id.y = id.y.max(0.0);
 
             let mut p = Vec2f::new(x as f32, y as f32);
-            p.y = scr_h - p.y;
-            //p += self.camera_pos;
+            // p.y = scr_h - p.y;
+            p += self.camera_pos;
             // p.x *= scr_w / scr_h;
 
             let id = hex::pixel_to_pointy_hex(p);
@@ -314,6 +327,10 @@ impl event::EventHandler for MainState {
     ) {
         if keycode == KeyCode::Escape {
             ggez::event::quit(ctx);
+        }
+
+        if keycode == KeyCode::C {
+            self.cpu_rendering_enabled = (!self.cpu_rendering_enabled);
         }
     }
 }
